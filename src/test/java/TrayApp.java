@@ -1,67 +1,61 @@
-import javax.swing.*;
 import java.awt.*;
-import java.awt.event.KeyEvent;
-import java.awt.event.KeyListener;
-import java.io.InputStream;
+import java.awt.event.ActionListener;
 import java.net.URL;
+import java.util.Locale;
 
 public class TrayApp {
+    private Translate translateInstance;
+    private TextFromPic ocrInstance;
 
     public TrayApp() {
         if (!SystemTray.isSupported()) {
             return;
         }
-
+        ocrInstance = new TextFromPic();
+        translateInstance = new Translate();
         PopupMenu trayMenu = new PopupMenu();
         MenuItem selectItem = new MenuItem("Select area");
         MenuItem exitItem = new MenuItem("Exit");
-        MenuItem testItem = new MenuItem("Test");
+        Menu serviceSubMenu = new Menu("Translate service");
+        Menu languageItem = new Menu("Target language");
         FrameTransparent frameTransparent = new FrameTransparent();
-        SelectAreaHandler selectArea = new SelectAreaHandler(frameTransparent);
+        SelectAreaHandler selectArea = new SelectAreaHandler(frameTransparent, ocrInstance, translateInstance);
 
-        trayMenu.add(testItem);
-        testItem.addActionListener(e -> {
-            System.out.println("МЯУ");
-            JPanel panel = new JPanel();
-            JLabel label = new JLabel("<html><p>Hello World! blah blah blah</p></html>", SwingConstants.CENTER);
-            panel.setBounds(new Rectangle(400, 40, 100, 400));
-            panel.setBackground(Color.CYAN);
-            frameTransparent.setBackground(new Color(0, 0, 0, 1));
-            frameTransparent.add(panel);
-            panel.add(label);
-            frameTransparent.setBackground(new Color(0, 0, 0, 0));
+        trayMenu.add(serviceSubMenu);
+        trayMenu.add(languageItem);
+
+        MenuItem googleSubMenu = new MenuItem("Google (default)");
+        MenuItem deeplSubMenu = new MenuItem("Deepl (need key)");
+        serviceSubMenu.add(googleSubMenu);
+        serviceSubMenu.add(deeplSubMenu);
+        deeplSubMenu.addActionListener(e -> {
+            //проверка на поиск файла с ключом Deepl API
+            //если ключа нет -> окошко с вводом ключа
         });
+
+        MenuItem englishItem = new MenuItem("English");
+        MenuItem russianItem = new MenuItem("Russian");
+        MenuItem japaneseItem = new MenuItem("Japanese");
+
+        ActionListener languageListener = e -> {
+            MenuItem item = (MenuItem) e.getSource();
+            String lang = item.getLabel().toLowerCase(Locale.ROOT).substring(0,2);
+            System.out.println("Language is " + lang);
+            translateInstance.setLanguage(lang);
+        };
+
+        englishItem.addActionListener(languageListener);
+        russianItem.addActionListener(languageListener);
+        japaneseItem.addActionListener(languageListener);
+
+        languageItem.add(englishItem);
+        languageItem.add(russianItem);
+        languageItem.add(japaneseItem);
+
         selectItem.addActionListener(e -> {
-            if (selectItem.getLabel().equals("Select area")) {
-                selectItem.setLabel("Stop selecting");
                 frameTransparent.addMouseListener(selectArea);
                 frameTransparent.addMouseMotionListener(selectArea);
-                /*
-                frameTransparent.addKeyListener(new KeyListener() {
-                    @Override
-                    public void keyTyped(KeyEvent e) {
-
-                    }
-
-                    @Override
-                    public void keyPressed(KeyEvent e) {
-                        if (e.getKeyChar() == 'x') {
-                            System.out.println("Exiting");
-                            System.exit(0);
-                        }
-                    }
-
-                    @Override
-                    public void keyReleased(KeyEvent e) {
-
-                    }
-                });
-                 */
                 frameTransparent.setBackground(new Color(0, 0, 0, 1));
-            } else {
-                frameTransparent.removeMouseListener(selectArea);
-                frameTransparent.removeMouseMotionListener(selectArea);
-            }
         });
         exitItem.addActionListener(e -> System.exit(0));
         trayMenu.add(selectItem);
