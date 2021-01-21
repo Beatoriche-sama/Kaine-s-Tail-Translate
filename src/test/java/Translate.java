@@ -26,7 +26,6 @@ public class Translate {
         StringBuilder regexResult = new StringBuilder();
         while (m.find()) {
             String s = m.group(1);
-            s = s.replaceAll("\\\\n", "");
             Matcher m1 = spliteTranslatedPattern.matcher(s);
             if (m1.find()) {
                 String ss = m1.group(0);
@@ -36,7 +35,7 @@ public class Translate {
 
         return regexResult.toString()
                 .replaceAll("cce7c67b3f2439089dd6b428e0b83b88|\"|" +
-                        "f9f74f6684a8d2cc5e759eb391adbee9", "");
+                        "f9f74f6684a8d2cc5e759eb391adbee9|\\\\n", "");
     }
 
     public String translate(String textToTranslate) throws IOException {
