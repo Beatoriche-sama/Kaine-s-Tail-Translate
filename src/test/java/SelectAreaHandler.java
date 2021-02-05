@@ -1,8 +1,11 @@
+import net.miginfocom.swing.MigLayout;
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
+import java.util.ArrayList;
 
 public class SelectAreaHandler extends MouseAdapter {
     private final JPanel selectArea;
@@ -13,7 +16,8 @@ public class SelectAreaHandler extends MouseAdapter {
     private final Translate translate;
     private final Color transparentColor, alphaTransparentColor;
 
-    public SelectAreaHandler(Container container, TextFromPic textFromPic, Translate translate) {
+    public SelectAreaHandler(Container container, TextFromPic textFromPic,
+                             Translate translate) throws AWTException {
         areaScreenshot = new AreaScreenshot();
         this.textFromPic = textFromPic;
         this.translate = translate;
@@ -22,12 +26,15 @@ public class SelectAreaHandler extends MouseAdapter {
         alphaTransparentColor = new Color(0,0,0, 1);
         selectArea.setBackground(transparentColor);
         selectArea.setBorder(BorderFactory.createLineBorder(Color.red));
+        container.setLayout(new MigLayout());
+        //добавлять не здесь select
         container.add(selectArea);
         this.container = container;
     }
 
     @Override
     public void mousePressed(MouseEvent e) {
+        //add(selected)
         pPressed = e.getPoint();
     }
 
@@ -49,36 +56,79 @@ public class SelectAreaHandler extends MouseAdapter {
         Dimension dimensionSelected = selectArea.getSize();
         BufferedImage bufferedImage;
         try {
-            bufferedImage = areaScreenshot.screenshot(selectArea.getLocation(), selectArea.getSize());
+            bufferedImage = areaScreenshot.screenshot(pointSelected, dimensionSelected);
+            String recognizedText = textFromPic.recognizeText("eng+jpn+rus", bufferedImage);
+            //remove(Selected) вместо setBounds
             selectArea.setBounds(0, 0, 0, 0);
-            String text = textFromPic.recognizeText("jpn", bufferedImage);
-            System.out.println("Распознанный текст: " + text);
-            String translatedText = translate.translate(text);
-            System.out.println("ПЕРЕВЕДЕННЫЙ ТЕКСТ: " + translatedText);
-
+            ArrayList <String> translatedText = translate.translateDeeplFree(recognizedText);
             Font font = new Font("TimesRoman", Font.BOLD, 20);
-            FontMetrics fontMetrics = selectArea.getFontMetrics(font);
-            String wrappedString = wordWrap(translatedText, fontMetrics, dimensionSelected);
-            JLabel labelText = new JLabel(String.valueOf(wrappedString));
-            labelText.setFont(font);
+
+            JLabel translatedTextLabel = new JLabel(translatedText.get(0));
+            translatedTextLabel.setLayout(new MigLayout());
+            translatedTextLabel.setFont(font);
+
+            JLabel originalTextLabel = new JLabel(recognizedText);
+            originalTextLabel.setFont(font);
+            originalTextLabel.setVisible(false);
 
             JPanel panelText = new JPanel();
             JButton deleteButton = new JButton("Delete");
-            Dimension buttonD = deleteButton.getPreferredSize();
-            Dimension labelSize = labelText.getPreferredSize();
-            panelText.add(deleteButton);
-            panelText.add(labelText);
+            JButton nextButton = new JButton("Next variant");
+            JButton previousButton = new JButton("Previous variant");
+            JButton recognizedTextButton = new JButton("Show recognized");
 
+            panelText.setLayout(new MigLayout());
             panelText.setLayout(new BoxLayout(panelText, BoxLayout.Y_AXIS));
-            panelText.setBounds(pointSelected.x, pointSelected.y,
-                    labelSize.width, labelSize.height + buttonD.height);
+            panelText.add(recognizedTextButton);
+            panelText.add(deleteButton);
+            panelText.add(previousButton, "back");
+            panelText.add(nextButton, "next");
+            panelText.add(translatedTextLabel, "wmax " + dimensionSelected.width +
+                    " pos " + pointSelected.x + " " + pointSelected.y);
+            panelText.add(originalTextLabel);
             panelText.setBackground(Color.lightGray);
+
+            recognizedTextButton.addActionListener(ee2->{
+                if(recognizedTextButton.getText().equals("Show recognized")){
+                    recognizedTextButton.setText("Hide recognized");
+                }else {
+                    recognizedTextButton.setText("Show recognized");
+                }
+                originalTextLabel.setVisible(!originalTextLabel.isVisible());
+            });
+
             deleteButton.addActionListener(e1 -> {
                 container.remove(panelText);
                 container.repaint();
             });
 
+            nextButton.addActionListener(ee->{
+                String newText;
+                String oldText = translatedTextLabel.getText();
+                int index = translatedText.indexOf(oldText);
+                if(index == translatedText.size() - 1){
+                    newText = translatedText.get(0);
+                }else {
+                    newText = translatedText.get(index + 1);
+                }
+                translatedTextLabel.setText(newText);
+            });
+
+            previousButton.addActionListener(ee1->{
+                String newText;
+                String oldText = translatedTextLabel.getText();
+                int index = translatedText.indexOf(oldText);
+                if(index == 0){
+                    newText = translatedText.get(translatedText.size() - 1);
+                }else {
+                    newText = translatedText.get(index - 1);
+                }
+                translatedTextLabel.setText(newText);
+            });
+
             container.setBackground(alphaTransparentColor);
+            //, "pos " + pointSelected.x + " " +
+            //                    pointSelected.y
             container.add(panelText);
             container.setBackground(transparentColor);
             container.removeMouseListener(this);
@@ -94,29 +144,8 @@ public class SelectAreaHandler extends MouseAdapter {
     public void mouseClicked(MouseEvent e) {
         super.mouseClicked(e);
         System.out.println("clicked");
-        selectArea.setBounds(0, 0, 0, 0);
+        //selectArea.setBounds(0, 0, 0, 0);
     }
 
-    private String wordWrap(String oririginalString, FontMetrics fontMetrics,
-                            Dimension dimension){
-        String[] words = oririginalString.split(" ");
-        StringBuilder resultWrapped = new StringBuilder("<html>");
-        String checkableString = "";
-        for (String s : words) {
-            checkableString += " " + s;
-            System.out.println("Сейчас проверяемая строка такая: "
-                    + checkableString);
-
-            if (fontMetrics.stringWidth(checkableString) > dimension.width) {
-                resultWrapped.append("<br/>").append(s);
-                checkableString = "";
-                System.out.println("Перенос строки.");
-            } else {
-                resultWrapped.append(" ").append(s);
-            }
-
-        }
-        return String.valueOf(resultWrapped.append("</html>"));
-    }
 
 }
